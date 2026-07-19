@@ -1,0 +1,88 @@
+data:
+  results_csv: data/results.csv
+  min_year: 1990
+
+elo:
+  initial_rating: 1500
+  k_factor: 32
+  home_advantage: 60
+  shootout_scale: 2000         # dampened vs the standard 400: pens are mostly luck
+  tournament_weights:          # K multiplier by tournament-name substring
+    FIFA World Cup: 1.5
+
+goal_model:
+  decay_half_life_years: 4
+  max_goals: 8
+
+match:
+  home: Argentina
+  away: Spain
+
+simulation:
+  n_runs: 10000
+  seed: 42
+  extra_time_fraction: 0.333   # extra time as a share of a full match
+
+output:
+  dir: output
+
+# Player rates are per-match international career averages through 2025;
+# match rates are FIFA World Cup 2014-2022 averages (penalties, cards).
+events:
+  players:
+    - name: Messi
+      team: Argentina
+      plays_probability: 0.75    # starts the final at age 39
+      goals_per_match: 0.58
+      assists_per_match: 0.32
+      penalty_take_share: 0.90   # takes it if his team gets one
+      penalty_conversion: 0.78
+    - name: "Julián Álvarez"
+      team: Argentina
+      plays_probability: 0.95
+      goals_per_match: 0.40
+      assists_per_match: 0.15
+      penalty_take_share: 0.05
+      penalty_conversion: 0.75
+    - name: "Lamine Yamal"
+      team: Spain
+      plays_probability: 0.95
+      goals_per_match: 0.22
+      assists_per_match: 0.35
+      penalty_take_share: 0.20
+      penalty_conversion: 0.80
+    - name: Oyarzabal
+      team: Spain
+      plays_probability: 0.80
+      goals_per_match: 0.33
+      assists_per_match: 0.20
+      penalty_take_share: 0.60   # Spain's usual first-choice taker
+      penalty_conversion: 0.85
+  world_cup_match:
+    penalty_awarded_rate: 0.29   # penalties per match, either side
+    yellow_cards_per_match: 3.9
+    red_card_rate: 0.08          # red cards per match
+  penalty_display_min_share: 0.5 # only chart pens for a team's main taker
+
+score_predictions:
+  top_n: 3
+
+viz:
+  surface: "#fcfcfb"
+  ink: "#0b0b0b"
+  muted: "#898781"
+  grid: "#e1e0d9"
+  team_colors:
+    Argentina: "#2a78d6"
+    Spain: "#e34948"
+  sequential:
+    - "#cde2fb"
+    - "#9ec5f4"
+    - "#6da7ec"
+    - "#3987e5"
+    - "#256abf"
+    - "#184f95"
+    - "#0d366b"
+  bar_color: "#3987e5"
+  heatmap_max_goals: 5
+  dpi: 150
