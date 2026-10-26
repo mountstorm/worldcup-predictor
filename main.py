@@ -4,18 +4,13 @@ from pathlib import Path
 
 import yaml
 
-from src.data_loader import load_matches
-from src.elo import compute_elo
-from src.events import card_event_report, player_event_report
-from src.goal_model import build_training_table, expected_goals, fit_goal_model, score_matrix
-from src.simulate import (
-    market_probabilities,
-    outcome_probabilities,
-    score_predictions,
-    simulate_final,
-    simulate_scores,
+from src.pipeline import Prediction, run
+from src.visualize import (
+    plot_elo_history,
+    plot_events,
+    plot_outcomes,
+    plot_score_heatmap,
 )
-from src.visualize import plot_elo_history, plot_events, plot_outcomes, plot_score_heatmap
 
 
 def load_config(path: str) -> dict:
@@ -52,54 +47,33 @@ def print_events(title: str, events: dict[str, float]) -> None:
         print(f"{label}: {prob:.1%}")
 
 
-def main() -> None:
-    """Run the full pipeline: data, Elo, goal model, simulation, charts."""
-    cfg = load_config("config.yaml")
-    home, away = cfg["match"]["home"], cfg["match"]["away"]
-    teams = [home, away]
-
-    matches = load_matches(cfg["data"]["results_csv"], cfg["data"]["min_year"])
-    ratings, history = compute_elo(matches, cfg["elo"])
-
-    training = build_training_table(matches, history)
-    model = fit_goal_model(training, cfg["goal_model"]["decay_half_life_years"])
-
-    elo_diff = ratings[home] - ratings[away]
-    lambdas = {
-        home: expected_goals(model, elo_diff),
-        away: expected_goals(model, -elo_diff),
-    }
-    matrix = score_matrix(lambdas[home], lambdas[away], cfg["goal_model"]["max_goals"])
-    ninety = outcome_probabilities(matrix)
-    markets = market_probabilities(matrix, lambdas[home], lambdas[away], teams)
-
-    scores = simulate_scores(
-        lambdas[home], lambdas[away], cfg["simulation"]["n_runs"], cfg["simulation"]["seed"],
-        cfg["simulation"]["extra_time_fraction"],
-    )
-    sim = simulate_final(scores, ratings[home], ratings[away], cfg["elo"]["shootout_scale"])
-    predictions = score_predictions(scores, cfg["score_predictions"]["top_n"])
-
-    match_events = markets | card_event_report(cfg["events"])
-    player_events = player_event_report(cfg["events"])
-
+def write_charts(p: Prediction, cfg: dict) -> None:
+    """Render every chart to the output directory."""
     out_dir = cfg["output"]["dir"]
     Path(out_dir).mkdir(exist_ok=True)
     for path in (
-        plot_elo_history(history, teams, cfg["viz"], out_dir),
-        plot_score_heatmap(matrix, teams, cfg["viz"], out_dir),
-        plot_outcomes(sim, ninety, teams, cfg["viz"], out_dir),
-        plot_events(match_events, "Match & team event probabilities", "match_events.png",
+        plot_elo_history(p.history, p.teams, cfg["viz"], out_dir),
+        plot_score_heatmap(p.matrix, p.teams, cfg["viz"], out_dir),
+        plot_outcomes(p.sim, p.ninety, p.teams, cfg["viz"], out_dir),
+        plot_events(p.match_events, "Match & team event probabilities", "match_events.png",
                     cfg["viz"], out_dir),
-        plot_events(player_events, "Player event probabilities", "player_events.png",
+        plot_events(p.player_events, "Player event probabilities", "player_events.png",
                     cfg["viz"], out_dir),
     ):
         print(f"chart: {path}")
 
-    print_report(teams, ratings, lambdas, ninety, sim)
-    print_scores(predictions, teams)
-    print_events("Match & team events", match_events)
-    print_events("Player events", player_events)
+
+def main() -> None:
+    """Run the full pipeline: data, Elo, goal model, simulation, charts."""
+    cfg = load_config("config.yaml")
+    p = run(cfg)
+
+    write_charts(p, cfg)
+
+    print_report(p.teams, p.ratings, p.lambdas, p.ninety, p.sim)
+    print_scores(p.predictions, p.teams)
+    print_events("Match & team events", p.match_events)
+    print_events("Player events", p.player_events)
 
 
 if __name__ == "__main__":
